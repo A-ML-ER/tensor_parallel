@@ -22,6 +22,7 @@ def find_predefined_tensor_parallel_config(
     model_config: PretrainedConfig, device_ids: Optional[Sequence[torch.device]]
 ) -> Optional[Config]:
     device_ids = check_device_ids(device_ids)
+    print(f" ----  find_predefined_tensor_parallel_config   device_ids : {device_ids}")
 
     try:
         return PREDEFINED_CONFIGS[model_config.model_type](model_config, device_ids)
@@ -34,6 +35,7 @@ def find_predefined_tensor_parallel_config(
 
 class TensorParallelPreTrainedModel(PreTrainedModel):
     is_parallelizable = model_parallel = True
+    print(f"TensorParallelPreTrainedModel  is_parallelizable : {is_parallelizable}")
 
     def __init__(
         self,
@@ -44,10 +46,12 @@ class TensorParallelPreTrainedModel(PreTrainedModel):
         tensor_parallel_config: Optional[Config] = None,
     ):
         super().__init__(module.config)  # Temporary empty config. Gets replaced in from_pretrained
+        print(f"super().__init__    module.config: {module.config}")
 
         if hasattr(module, "_hf_hook"):
             from accelerate.hooks import remove_hook_from_module
 
+            print(f" ------   remove_hook_from_module  -------")
             remove_hook_from_module(module, recurse=True)
 
         if tensor_parallel_config is None:
