@@ -19,6 +19,8 @@ def make_shard(module: nn.Module, device: torch.device, config: Config, *, rank:
         len(list(module.children())) != 0
     ), "Please ensure module is a container (e.g. Sequential), not a single layer"
     source_tensors = dict(chain(module.named_parameters(), module.named_buffers()))
+    print("  ---  make_shard  ---  source_tensors = dict(chain(module.named_parameters(), module.named_buffers())) ")
+    print(f"--- source_tensors : {source_tensors}")
     substitutes = {
         id(x): nn.Parameter(
             torch.empty(
@@ -66,6 +68,9 @@ def make_shard(module: nn.Module, device: torch.device, config: Config, *, rank:
 
 
 def make_distributed_shard(config: Optional[Config], module: nn.Module, device: torch.device):
+    print(f" ----   make_distributed_shard  ------ config : {config}")
+    print(f" ----   make_distributed_shard  ------ device : {device} ")
+
     if config is None:
         config = get_default_config(module, device_ids=range(torch.distributed.get_world_size()))
         logger.info("Using automatic config: sharding individual linear/conv/emb layers")

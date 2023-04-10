@@ -5,6 +5,7 @@ from tensor_parallel.utils import nested_map
 
 
 def gather_kv(*present_key_value_state, world_size):
+    print(" -------  gather_kv  ------- ")
     if present_key_value_state[0] is None:
         return present_key_value_state
     else:
@@ -12,11 +13,13 @@ def gather_kv(*present_key_value_state, world_size):
 
 
 def select_kv_for_rank(present_key_value_state, rank):
+    print(" -------  select_kv_for_rank  ------- ")
     return nested_map(lambda x: x[rank] if isinstance(x, PerDeviceTensors) else x, present_key_value_state)
 
 
 def split_heads(tensor: torch.Tensor, *, dim: int, head_dim: int, rank: int, world_size: int, optional: bool = False):
     """Split a tensor along dim such that each part size is divisible by head_dim"""
+    print(" -------  split_heads  ------- ")
     if tensor is None and optional:
         return None
     assert tensor.shape[dim] % head_dim == 0, tensor.shape
@@ -32,6 +35,7 @@ def split_heads(tensor: torch.Tensor, *, dim: int, head_dim: int, rank: int, wor
 
 
 def split_num_heads(num_heads: int, *, rank: int, world_size: int):
+    print(" ---  split_num_heads  ----")
     assigned_num_heads = torch.empty(num_heads, device="meta").tensor_split(world_size)[rank].numel()
     return assigned_num_heads if assigned_num_heads != 0 else 1
 

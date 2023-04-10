@@ -41,10 +41,12 @@ class Config:
     def __init__(
         self, state_rules: StateRules, input_rules: ModuleRules, output_rules: ModuleRules, attr_rules: ModuleRules
     ):
+        print(" -----  Config  __init__ ------- ")
         for pattern, state_action in state_rules.items():
             state_rules[pattern] = convert_legacy_state_action(state_action)
 
         all_rules = [state_rules, input_rules, output_rules, attr_rules]
+
         for i, rule_set in enumerate(all_rules):
             all_rules[i] = dict((re.compile(pattern), actions) for pattern, actions in rule_set.items())
         self.state_rules, self.input_rules, self.output_rules, self.attr_rules = all_rules

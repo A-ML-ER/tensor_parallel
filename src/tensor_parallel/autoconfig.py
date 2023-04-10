@@ -13,6 +13,7 @@ def get_default_config(module: nn.Module, device_ids: Sequence[torch.device]) ->
     """Make a generic config that wraps individual linear, embedding and convolutional layers"""
     emb_weights = {m.weight for m in module.modules() if isinstance(m, (nn.Embedding, nn.EmbeddingBag))}
 
+    print(f"-------  get_default_config ------- , emb_weights = {emb_weights}")
     state_rules = {}
     input_rules = {}
     output_rules = {}
@@ -52,8 +53,11 @@ def get_default_config(module: nn.Module, device_ids: Sequence[torch.device]) ->
                 state_rules[f"^{name}.bias$"] = Split(world_size=len(device_ids), dim=0)
             output_rules[f"^{name}$"] = {0: "gather 1"}
         elif isinstance(module, conv._ConvNd) and module.groups != 1:
+            print(" group conv: split each group individually over input channels to avoid changing module.groups ")
             # group conv: split each group individually over input channels to avoid changing module.groups
             groups = module.groups
+            print(f" groups : {groups}")
+
             shape = [module.out_channels // groups, module.in_channels // groups] + list(module.kernel_size)
             shape[:2] = shape[:2][::-1] if module.transposed else shape[:2]
             shape[0] *= module.groups
@@ -69,5 +73,6 @@ def get_default_config(module: nn.Module, device_ids: Sequence[torch.device]) ->
             if module.bias is not None:
                 state_rules[f"^{name}.bias$"] = Scale(world_size=len(device_ids))
             input_rules[f"^{name}$"] = {0: SplitInsideChunks(world_size=len(device_ids), dim=1, num_chunks=groups)}
+            print(f"-------  input_rules ------- , input_rules ---- ")
             output_rules[f"^{name}$"] = {0: "sum"}
     return Config(state_rules, input_rules, output_rules, {})

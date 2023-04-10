@@ -32,9 +32,12 @@ class TensorParallel(nn.Module):
         delay_init: bool = False,
     ):
         super().__init__()
+        print("--- TensorParallel __init__ ---- ")
         original_params = sum(p.numel() for p in module.parameters())
+        print(f" ----  original_params : {original_params}")
         assert output_device is None or output_device_index is None, "please specify either device or index, not both"
         device_ids = check_device_ids(device_ids)
+        print(f" ---- device_ids : {device_ids}")
 
         if output_device is not None:
             output_device = canonicalize_device(output_device)
@@ -61,21 +64,26 @@ class TensorParallel(nn.Module):
 
         if tensor_parallel_config is None:
             tensor_parallel_config = get_default_config(module, self.devices)
+            print(f" ---  tensor_parallel_config : {tensor_parallel_config}")
+            print("Using automatic config: sharding individual linear/conv/emb layers")
             logger.info("Using automatic config: sharding individual linear/conv/emb layers")
 
         self.tensor_parallel_config = tensor_parallel_config
 
         config_with_ops = tensor_parallel_config.create_collective_ops(self.devices)
+        print(f" ----  config_with_ops : {config_with_ops} ")
         # ^-- creates a copy of comfig with collective op instances, such as AllReduce and AllGather
 
         for rank, device in enumerate(self.devices):
             if delay_init:
                 device = torch.device("cpu")
+                print(f"---  torch.device(cpu)  -- devcie : {device}")
             self.module_shards.append(make_shard(module, device, config_with_ops, rank=rank, world_size=world_size))
 
         # self-diagnostics: check if the model was sharded properly
 
         params_per_shard = [sum(p.numel() for p in shard.parameters()) for shard in self.module_shards]
+        print(f"  params_per_shard : {params_per_shard}")
         assert sum(params_per_shard) >= original_params, "Internal assert failed: lost some parameters during sharding"
         self.param_fractions = tuple(params_i / original_params for params_i in params_per_shard)
         inefficiency_rate = (sum(self.param_fractions) - 1) / len(device_ids)  # extra params rate per GPU
@@ -187,6 +195,7 @@ def parallel_apply_simple(
 ) -> Sequence[Sequence[torch.Tensor]]:
     r"""a version of parallel_apply that does not use cuda streams; somewhat slower"""
     assert len(modules) == len(inputs)
+    print(" ----  parallel_apply_simple  ----")
     if kwargs_tup is not None:
         assert len(modules) == len(kwargs_tup)
     else:
@@ -233,6 +242,7 @@ def parallel_apply_simple(
 
 
 def get_a_var(obj):
+    print(" ------ get_a_var ------ ")
     if isinstance(obj, torch.Tensor):
         return obj
 
@@ -248,6 +258,7 @@ def get_a_var(obj):
 
 
 def canonicalize_device(device: Union[torch.device, str]) -> torch.device:
+    print("---- canonicalize_device ----- ")
     device = torch.device(device)
     if device.type == "cuda" and device.index is None:
         device = torch.device(device.type, index=0)
@@ -255,6 +266,7 @@ def canonicalize_device(device: Union[torch.device, str]) -> torch.device:
 
 
 def check_device_ids(device_ids: Optional[Sequence[torch.device]]) -> Sequence[torch.device]:
+    print(" ------ check_device_ids ------ ")
     if device_ids is None:
         device_ids = _get_all_device_indices() if torch.cuda.is_available() else []
     return tuple(map(canonicalize_device, device_ids))
