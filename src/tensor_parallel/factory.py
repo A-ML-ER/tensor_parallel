@@ -51,6 +51,7 @@ def tensor_parallel(
     distributed = distributed if distributed is not None else torch.distributed.is_initialized()
 
     if distributed:
+        print("----- tensor_parallel  distributed  ------- ")
         if device_ids is None:
             device_ids = [torch.device("cuda" if torch.cuda.is_available() else "cpu")]
         assert len(device_ids) == 1, "if distributed=True, please specify a single (current) device"
@@ -59,6 +60,9 @@ def tensor_parallel(
         return tensor_parallel_config.make_distributed_shard(module, device=torch.device(device_ids[0]), **kwargs)
     else:
         if isinstance(module, PreTrainedModel):
+            print(f"----- tensor_parallel  distributed  module : {module} ")
+            print(f"----- tensor_parallel  distributed  PreTrainedModel : {PreTrainedModel} ")
+
             module = TensorParallelPreTrainedModel(
                 module, device_ids=device_ids, tensor_parallel_config=tensor_parallel_config, **kwargs
             )
@@ -69,7 +73,10 @@ def tensor_parallel(
             module = TensorParallel(
                 module, device_ids=device_ids, tensor_parallel_config=tensor_parallel_config, **kwargs
             )
+            print(f"----- tensor_parallel  module = TensorParallel")
+            print(module)
             module = _maybe_sharded(module, sharded, num_trainable_parameters, sharded_param_names=sharded_param_names)
+            print(f"----- tensor_parallel  module = _maybe_sharded")
 
         return module
 
