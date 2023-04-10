@@ -90,6 +90,7 @@ def _maybe_sharded(
 ) -> Union[Sharded, TensorParallel]:
     """Determines if sharding is necessary, returns either Sharded(module) or module itself, if unchanged"""
     determined_automatically = sharded is None
+    print(f"---- sharded : {sharded}")
     if sharded is None:
         num_trainable_parameters_after_tp = sum(p.numel() for p in module.parameters() if p.requires_grad)
         assert num_trainable_parameters_after_tp >= num_trainable_parameters
@@ -97,14 +98,19 @@ def _maybe_sharded(
         # use sharding if there are some *trainable* parameter that are replicated on more than one device
 
     model_is_meta = any([p.device.type == "meta" for p in module.parameters()])
+    print(f"---- model_is_meta : {model_is_meta}")
     if sharded and model_is_meta and sharded_param_names is None:
         logger.warning(
             f"Not sharding the model that should be sharded because it has meta tensors which prevent sharding without 'sharded_param_names'. It's recomended to shard a model after loading it's weights."
         )
         sharded = False
-    elif sharded and determined_automatically:
+    elif sharded and determined_automatically
+        print(f"  sharded and determined_automatically  ---")
         num_extra_parameters = num_trainable_parameters_after_tp - num_trainable_parameters
+        print(f" ----- num_extra_parameters  :  {num_extra_parameters}  ---")
+
         replicated_parameters = num_extra_parameters // max(1, len(module.devices) - 1)
         logger.warning(f"Using ZeRO-3 sharding for {replicated_parameters} non tensor-parallel parameters")
+        print(f" ----- num_extra_parameters  :  {num_extra_parameters}  ---")
 
     return Sharded(module, sharded_param_names=sharded_param_names, **kwargs) if sharded else module
