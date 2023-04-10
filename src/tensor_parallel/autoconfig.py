@@ -13,7 +13,7 @@ def get_default_config(module: nn.Module, device_ids: Sequence[torch.device]) ->
     """Make a generic config that wraps individual linear, embedding and convolutional layers"""
     emb_weights = {m.weight for m in module.modules() if isinstance(m, (nn.Embedding, nn.EmbeddingBag))}
 
-    print(f"-------  get_default_config ------- , emb_weights = {emb_weights}")
+    print(f"-------  get_default_config ------- , emb_weights ")
     state_rules = {}
     input_rules = {}
     output_rules = {}

@@ -20,7 +20,7 @@ def make_shard(module: nn.Module, device: torch.device, config: Config, *, rank:
     ), "Please ensure module is a container (e.g. Sequential), not a single layer"
     source_tensors = dict(chain(module.named_parameters(), module.named_buffers()))
     print("  ---  make_shard  ---  source_tensors = dict(chain(module.named_parameters(), module.named_buffers())) ")
-    print(f"--- source_tensors : {source_tensors}")
+    print(f"--- source_tensors : ")
     substitutes = {
         id(x): nn.Parameter(
             torch.empty(
