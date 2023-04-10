@@ -32,17 +32,14 @@ class CollectiveOperation(CollectiveOpetationBase):
         self.barrier = threading.Barrier(world_size)
 
     def __call__(self, x: torch.Tensor, rank: int):
-        print(f"---- CollectiveOperation --- __call__  , rank : {rank}")
         try:
             self.rank_inputs[rank] = x
             self.barrier.wait()
             if rank == self.authoritative_rank:
                 try:
-                    print("-- self.func(*self.rank_inputs) ---")
                     print()
                     result = self.func(*self.rank_inputs)
                     print(self.func)
-                    print(f"world_size : {self.world_size}")
                     for i in range(self.world_size):
                         self.rank_outputs[i] = (result[i], None)
                 except Exception as e:
@@ -65,14 +62,11 @@ class NCCLAllReduce(CollectiveOperation):
 
 class NCCLAllGather(CollectiveOperation):
     def __init__(self, world_size: int, dim: int):
-        print(" NCCLAllGather  __init__  ")
         super().__init__(world_size, func=cross_device_ops.NCCLAllGatherFunction.apply)
-        print(" __init__  world_size, func=cross_device_ops.NCCLAllGatherFunction.apply " )
         self.tensor_lengths = [None for _ in range(world_size)]
         self.dim = dim
 
     def __call__(self, x: torch.Tensor, rank: int):
-        print("-----  NCCLAllGather   __call__  ")
         # note: all-gather deliberately makes all device-local computations on their ranks, because failing to do so
         # (making one of the ranks operate on other's tensors) may deadlock cuda streams in parallel_apply;
         # if you modify this code and need cross-rank computations, use parallel_apply_simple to avoid stream deadlocks
@@ -82,7 +76,6 @@ class NCCLAllGather(CollectiveOperation):
             self.barrier.wait()
             tensor_lengths = tuple(self.tensor_lengths)
             max_length = max(tensor_lengths)
-            print(f"-----  max_length  :  {max_length}  ")
 
             if x.shape[gather_dim] < max_length:
                 pad = [0] * (x.ndim * 2)
@@ -90,7 +83,6 @@ class NCCLAllGather(CollectiveOperation):
                 # to understand the weird indexing (2 * (ndim - dim) ...), see F.pad documentation
                 x = torch.nn.functional.pad(x, pad)
             gathered_tensor = super().__call__(x, rank=rank)
-            print("--- gathered_tensor = super().__call__(x, rank=rank)")
             used_padding = any(length != max_length for length in tensor_lengths)
 
             if not used_padding:
@@ -98,18 +90,15 @@ class NCCLAllGather(CollectiveOperation):
                 dim_indices.insert(gather_dim, 0)
                 concatenated_shape = list(x.shape)
                 concatenated_shape[gather_dim] = -1
-                print(" ---- gathered_tensor.permute  ")
                 return gathered_tensor.permute(dim_indices).reshape(concatenated_shape)
             else:
                 # restore original tensor lengths by slicing off padding
                 gathered_tensor_parts = []
-                print(" i, tensor_length in enumerate(tensor_lengths) ")
                 for i, tensor_length in enumerate(tensor_lengths):
                     slices_i = [slice(None) for _ in range(gathered_tensor.ndim)]
                     slices_i[0] = i  # select i-th element from gathered tensors
                     slices_i[gather_dim + 1] = slice(0, tensor_length)  # remove padding
                     gathered_tensor_parts.append(gathered_tensor[slices_i])
-                    print(f"  torch.cat(gathered_tensor_parts, dim=self.dim) -- self.dim : {self.dim}")
                 return torch.cat(gathered_tensor_parts, dim=self.dim)
         finally:
             self.tensor_lengths[rank] = None
@@ -164,7 +153,6 @@ class AllGather(CollectiveOpetationBase):
         self.gather_op = gather_op
 
     def __call__(self, x: torch.Tensor, rank: int):
-        print("  AllGather   __call__ ")
         if self.barrier is not None:
             self.barrier.wait()  # if this code is ran multiple times in quick succession,
         # this even will wait for the previous call to finish before starting a new one
@@ -176,7 +164,6 @@ class AllGather(CollectiveOpetationBase):
             if len(ranks_updated) == self.world_size:
                 parts_ready.set()  # can be called more than once; we dont care
             parts_ready.wait()
-            print("   parts_ready.wait() ")
             # note: for one of the parts with r == rank, part.to(device) is a no-op
             return self.gather_op(parts, x.device)
         finally:
@@ -184,7 +171,6 @@ class AllGather(CollectiveOpetationBase):
                 self.parts = [None for _ in range(self.world_size)]
                 self.ranks_updated = []
                 self.parts_ready = threading.Event()
-                print(f"   parts_ready  : {parts_ready} ")
             # note: we can safely update these properties because all ranks have
             # copied self.parts_* to locals before passing parts_ready.wait
 
@@ -202,9 +188,6 @@ class DistributedAllGather(CollectiveOpetationBase):
         self.world_size = world_size
 
     def __call__(self, x: torch.Tensor, rank: int):
-        print("---- DistributedAllReduce __call__ ")
         gathered_tensors = [torch.empty_like(x) for _ in range(self.world_size)]
-        print(" gathered_tensors ")
         all_gather(gathered_tensors, x)
-        print(" all_gather(gathered_tensors, x) ")
         return torch.cat(gathered_tensors, dim=self.dim)

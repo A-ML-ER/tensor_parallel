@@ -15,6 +15,7 @@ from tensor_parallel.state_actions import StateAction
 
 
 def apply_action(input: torch.Tensor, action: StateAction, *, rank: int, world_size: int):
+    print("---- apply_action  -----")
     if isinstance(action, tuple):
         action = action[0]  # get splitting action
     if callable(action):
@@ -29,6 +30,7 @@ def apply_action(input: torch.Tensor, action: StateAction, *, rank: int, world_s
 
 
 def process_input(input_actions: MappedActions, rank: int, world_size: int, *args, **kwargs):
+    print("--- process_input -----")
     extended_kwargs = dict(kwargs)
     extended_kwargs.update(enumerate(args))
     for target, action in input_actions.items():
@@ -38,6 +40,7 @@ def process_input(input_actions: MappedActions, rank: int, world_size: int, *arg
 
 
 def process_output(output, output_actions: MappedActions, *, rank: int, world_size: int):
+    print("")
     if isinstance(output, torch.Tensor):
         return process_output({0: output}, output_actions, rank=rank, world_size=world_size)[0]
     if isinstance(output, Sequence):
@@ -67,8 +70,10 @@ class TensorParallelWrapper(nn.Module):
         self.rank, self.world_size = rank, world_size
 
     def forward(self, *args, **kwargs):
+        print(f" process_input   self.input_actions : {self.input_actions} , rank : {self.rank}, world_size : {self.world_size}")
         args, kwargs = process_input(self.input_actions, self.rank, self.world_size, *args, **kwargs)
         output = self.tp_wrapped_module(*args, **kwargs)
+        print(f" process_output   rank : {self.rank}, world_size : {self.world_size}")
         return process_output(output, self.output_actions, rank=self.rank, world_size=self.world_size)
 
     def __getattr__(self, attr):
