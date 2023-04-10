@@ -32,12 +32,17 @@ class CollectiveOperation(CollectiveOpetationBase):
         self.barrier = threading.Barrier(world_size)
 
     def __call__(self, x: torch.Tensor, rank: int):
+        print(f"---- CollectiveOperation --- __call__  , rank : {rank}")
         try:
             self.rank_inputs[rank] = x
             self.barrier.wait()
             if rank == self.authoritative_rank:
                 try:
+                    print("-- self.func(*self.rank_inputs) ---")
+                    print()
                     result = self.func(*self.rank_inputs)
+                    print(self.func)
+                    print(f"world_size : {self.world_size}")
                     for i in range(self.world_size):
                         self.rank_outputs[i] = (result[i], None)
                 except Exception as e:
@@ -45,6 +50,7 @@ class CollectiveOperation(CollectiveOpetationBase):
                         self.rank_outputs[i] = (None, e)
             self.barrier.wait()
             result, exception = self.rank_outputs[rank]
+            print(f" reuslt : {result}")
             if exception:
                 raise exception
             return result
