@@ -104,7 +104,7 @@ def _maybe_sharded(
             f"Not sharding the model that should be sharded because it has meta tensors which prevent sharding without 'sharded_param_names'. It's recomended to shard a model after loading it's weights."
         )
         sharded = False
-    elif sharded and determined_automatically
+    elif sharded and determined_automatically:
         print(f"  sharded and determined_automatically  ---")
         num_extra_parameters = num_trainable_parameters_after_tp - num_trainable_parameters
         print(f" ----- num_extra_parameters  :  {num_extra_parameters}  ---")
